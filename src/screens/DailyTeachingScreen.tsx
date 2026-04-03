@@ -1,21 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Enso } from '../components/Enso';
 import { fetchTeaching } from '../services/claudeService';
 import { getCurrentQuote, getLastFetchDate, getToday, saveTeaching } from '../storage/teachingStorage';
 import type { Teaching } from '../types';
 
-type AppState = 'unrevealed' | 'loading' | 'revealed' | 'error';
+type AppState = 'unrevealed' | 'loading' | 'revealing' | 'revealed' | 'error';
 
 export function DailyTeachingScreen() {
   const [appState, setAppState] = useState<AppState>('unrevealed');
   const [teaching, setTeaching] = useState<Teaching | null>(null);
 
-  const ensoOpacity = useRef(1);
-  const quoteOpacity = useRef(0);
-  const quoteY = useRef(12);
-  const attributionOpacity = useRef(0);
-
-  const [, forceUpdate] = useState(0);
+  const [ensoOpacity, setEnsoOpacity] = useState(1);
+  const [quoteOpacity, setQuoteOpacity] = useState(0);
+  const [quoteY, setQuoteY] = useState(12);
+  const [attributionOpacity, setAttributionOpacity] = useState(0);
 
   useEffect(() => {
     const lastFetch = getLastFetchDate();
@@ -25,10 +23,10 @@ export function DailyTeachingScreen() {
       const saved = getCurrentQuote();
       if (saved) {
         setTeaching(saved);
-        ensoOpacity.current = 0;
-        quoteOpacity.current = 1;
-        quoteY.current = 0;
-        attributionOpacity.current = 1;
+        setEnsoOpacity(0);
+        setQuoteOpacity(1);
+        setQuoteY(0);
+        setAttributionOpacity(1);
         setAppState('revealed');
       }
     }
@@ -49,28 +47,24 @@ export function DailyTeachingScreen() {
   }
 
   function animateReveal() {
+    setAppState('revealing');
     const start = performance.now();
 
     function tick(now: number) {
       const elapsed = now - start;
 
-      // Enso fade out over 600ms
-      ensoOpacity.current = Math.max(0, 1 - elapsed / 600);
+      setEnsoOpacity(Math.max(0, 1 - elapsed / 600));
 
-      // Quote fade in + drift up over 1200ms, delay 400ms
       if (elapsed > 400) {
         const t = Math.min(1, (elapsed - 400) / 1200);
-        quoteOpacity.current = t;
-        quoteY.current = 12 * (1 - t);
+        setQuoteOpacity(t);
+        setQuoteY(12 * (1 - t));
       }
 
-      // Attribution fade in over 800ms, delay 900ms
       if (elapsed > 900) {
         const t = Math.min(1, (elapsed - 900) / 800);
-        attributionOpacity.current = t;
+        setAttributionOpacity(t);
       }
-
-      forceUpdate(n => n + 1);
 
       if (elapsed < 1800) {
         requestAnimationFrame(tick);
@@ -84,35 +78,24 @@ export function DailyTeachingScreen() {
 
   return (
     <div onClick={handleTap} style={styles.container}>
-      {(appState === 'unrevealed' || appState === 'loading') && (
-        <div style={styles.unrevealedContent}>
-          <Enso opacity={ensoOpacity.current} size={160} />
-          <p style={styles.tapPrompt}>
-            {appState === 'loading' ? '' : 'tap to receive'}
-          </p>
+
+      {/* Ensō layer — fades out on reveal */}
+      {appState !== 'revealed' && appState !== 'error' && (
+        <div style={{ ...styles.layer, opacity: ensoOpacity }}>
+          <Enso size={160} />
+          {appState === 'unrevealed' && (
+            <p style={styles.tapPrompt}>tap to receive</p>
+          )}
         </div>
       )}
 
-      {appState === 'error' && (
-        <div style={styles.unrevealedContent}>
-          <Enso opacity={1} size={160} />
-          <p style={styles.tapPrompt}>something interrupted the silence</p>
-        </div>
-      )}
-
-      {(appState === 'revealed' || appState === 'loading') && teaching && (
-        <div style={styles.revealedContent}>
-          <div style={{ ...styles.ensoSmall, opacity: ensoOpacity.current }}>
-            <Enso size={40} />
-          </div>
-          <p style={{
-            ...styles.quote,
-            opacity: quoteOpacity.current,
-            transform: `translateY(${quoteY.current}px)`,
-          }}>
+      {/* Teaching layer — fades in on reveal */}
+      {teaching && appState !== 'unrevealed' && appState !== 'error' && (
+        <div style={{ ...styles.layer, opacity: quoteOpacity }}>
+          <p style={{ ...styles.quote, transform: `translateY(${quoteY}px)` }}>
             {teaching.quote}
           </p>
-          <div style={{ opacity: attributionOpacity.current }}>
+          <div style={{ opacity: attributionOpacity, textAlign: 'center' }}>
             <p style={styles.teacher}>{teaching.teacher}</p>
             {teaching.source && (
               <p style={styles.source}>{teaching.source}</p>
@@ -120,42 +103,46 @@ export function DailyTeachingScreen() {
           </div>
         </div>
       )}
+
+      {/* Error state */}
+      {appState === 'error' && (
+        <div style={styles.layer}>
+          <Enso size={160} />
+          <p style={styles.tapPrompt}>something interrupted the silence</p>
+        </div>
+      )}
+
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
+    position: 'relative',
     minHeight: '100vh',
     backgroundColor: '#FAFAF8',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
+    overflow: 'hidden',
   },
-  unrevealedContent: {
+  layer: {
+    position: 'absolute',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: '24px',
+    padding: '0 11%',
+    width: '100%',
   },
   tapPrompt: {
     fontSize: '11px',
-    color: '#8A8A85',
+    color: '#4A4A48',
     letterSpacing: '0.08em',
     margin: 0,
     fontFamily: 'Georgia, serif',
-  },
-  revealedContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '0 11%',
-    gap: '24px',
-    maxWidth: '78%',
-  },
-  ensoSmall: {
-    marginBottom: '8px',
   },
   quote: {
     fontSize: '21px',
