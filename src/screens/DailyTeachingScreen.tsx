@@ -82,7 +82,7 @@ export function DailyTeachingScreen() {
       {/* Ensō layer — fades out on reveal */}
       {appState !== 'revealed' && appState !== 'error' && (
         <div style={{ ...styles.layer, opacity: ensoOpacity }}>
-          <Enso size={160} />
+          <Enso size={160} pulsing={appState === 'loading' || appState === 'revealing'} />
           {appState === 'unrevealed' && (
             <p style={styles.tapPrompt}>tap to receive</p>
           )}
