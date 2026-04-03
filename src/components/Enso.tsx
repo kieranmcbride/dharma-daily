@@ -1,4 +1,3 @@
-
 interface EnsoProps {
   opacity?: number;
   size?: number;
@@ -22,8 +21,8 @@ export function Enso({ opacity = 1, size = 160 }: EnsoProps) {
            C15 104, 12 72, 28 50
            C40 33, 60 22, 80 20
            C88 19, 98 22, 105 28"
-        stroke="#C8C8C0"
-        strokeWidth="3.5"
+        stroke="#1A1A18"
+        strokeWidth="5"
         strokeLinecap="round"
         fill="none"
       />
